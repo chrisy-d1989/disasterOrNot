@@ -4,6 +4,7 @@
 modul: help functions
 modul author: Christoph Doerr
 
+https://www.kaggle.com/shahules/basic-eda-cleaning-and-glove
 """
 
 import os
@@ -30,112 +31,10 @@ from keras.layers import Embedding,LSTM,Dense,SpatialDropout1D
 from keras.initializers import Constant
 from sklearn.model_selection import train_test_split
 from keras.optimizers import Adam
-from spellchecker import SpellChecker
 from nltk.stem.porter import PorterStemmer
 import utils as utils
 
 nlp_path = 'C:/Users/cdoerr1/Desktop/CoronaAi/nlp-getting-started/'
-# def create_corpus(series, target):
-#     corpus=[]
-    
-#     for x in series[series['target']==target]['text'].str.split():
-#         for i in x:
-#             corpus.append(i)
-#     return corpus
-
-
-
-def findStopwords(corpus):
-    dic_stopwords=defaultdict(int)
-    dic_punctuation=defaultdict(int)
-    stop_words=set(stopwords.words('english'))
-    special = string.punctuation
-    for word in corpus:
-        if word in stop_words:
-            dic_stopwords[word]+=1
-        if word in special:
-            dic_punctuation[word]+=1
-    top=sorted(dic_stopwords.items(), key=lambda x:x[1],reverse=True)[:10] 
-    return top, dic_punctuation
-
-def get_top_tweet_bigrams(corpus, dim=2, n=None):
-    vec = CountVectorizer(ngram_range=(dim, dim)).fit(corpus)
-    bag_of_words = vec.transform(corpus)
-    sum_words = bag_of_words.sum(axis=0) 
-    words_freq = [(word, sum_words[0, idx]) for word, idx in vec.vocabulary_.items()]
-    words_freq =sorted(words_freq, key = lambda x: x[1], reverse=True)
-    return words_freq[:n]
-
-def cleanTweet(text, appostrophes=True, emojis=True, html=True, url=True, misspellings=True, punctuation=True, lemming=True,\
-               stop=True):
-    # for text in corpus:
-    if appostrophes:
-        #convert appostrophes
-        filtered_tweet = utils.decontracted(text)
-    if emojis:
-        #decoding, removing emojis
-        filtered_tweet = filtered_tweet.encode("utf-8").decode('ascii','ignore')
-    if html:
-        #cleaning of html tags
-        htmltags = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
-        filtered_tweet = re.sub(htmltags, '', filtered_tweet)
-    if url:
-        #cleaning of url
-        url = re.compile(r'https?://\S+|www\.\S+')
-        filtered_tweet = re.sub(url, '', text)
-    if misspellings:
-        #cleaning of misspellings
-        spell = SpellChecker()
-        corrected_text = []
-        misspelled_words = spell.unknown(filtered_tweet.split())
-        for word in filtered_tweet.split():
-            if word in misspelled_words:
-                corrected_text.append(spell.correction(word))
-            else:
-                corrected_text.append(word)
-        filtered_tweet =  " ".join(corrected_text)
-    #cleaning of slang words
-    #split attached words, not working and questionable because of all capital words
-    # filtered_tweet =  " ".join(re.findall('[A-Z][^A-Z]*', filtered_tweet))
-    #stemming
-    if punctuation:
-        word_tokens = word_tokenize(filtered_tweet)
-        #remove punctuations
-        table=str.maketrans('','',string.punctuation)
-        filtered_tweet.translate(table)  
-        filtered_tweet = [word.translate(table) for word in word_tokens]
-        filtered_tweet = " ".join(filtered_tweet)
-    if lemming:
-        #lemming of words
-        word_tokens = word_tokenize(filtered_tweet)
-        lemmatizer = WordNetLemmatizer() 
-        filtered_tweet = [lemmatizer.lemmatize(word) for word in word_tokens]
-    if stop:
-        # cleaning from stopwords
-        stop_words=set(stopwords.words('english'))
-        stop_word_drop = [] 
-        for word in filtered_tweet: 
-            if word not in stop_words: 
-                stop_word_drop.append(word) 
-    filtered_tweet = " ".join(stop_word_drop)
-    return filtered_tweet
-
-def create_corpus(df):
-    corpus=[]
-    stop_words=set(stopwords.words('english'))
-    for tweet in tqdm(df['text']):
-        words=[word.lower() for word in word_tokenize(tweet) if((word.isalpha()==1) & (word not in stop_words))]
-        corpus.append(words)
-    return corpus
-
-#cleaning of rare words
-# tokens is a list of all tokens in corpus
-# freq_dist = nltk.FreqDist(token)
-# rarewords = freq_dist.keys()[-50:]
-# after_rare_words = [ word for word in token not in rarewords]
-
-#  lower case
-# train['tweet'] = train['tweet'].apply(lambda x: " ".join(x.lower() for x in x.split()))   
 
 train_raw = pd.read_csv(nlp_path +'train.csv')
 test_raw = pd.read_csv(nlp_path + 'test.csv')
@@ -149,17 +48,17 @@ if os.path.exists('{}{}.csv'.format(nlp_path, 'train_clean')) and \
 else:
     train = pd.read_csv('C:/Users/cdoerr1/Desktop/CoronaAi/nlp-getting-started/train.csv')
     test = pd.read_csv('C:/Users/cdoerr1/Desktop/CoronaAi/nlp-getting-started/test.csv')
-    train_clean = train['text'].progress_apply(lambda x : cleanTweet(x, appostrophes=True, emojis=True, html=True, url=True,\
+    train_clean = train['text'].progress_apply(lambda x : utils.cleanTweet(x, appostrophes=True, emojis=True, html=True, url=True,\
                                                                      misspellings=False, punctuation=True, lemming=True, stop=True))
     utils.safeIndicators(train_clean, nlp_path, 'train_clean')
     print('finished cleanning train dataset')
-    test_clean = train['text'].progress_apply(lambda x : cleanTweet(x, appostrophes=True, emojis=True, html=True, url=True,\
+    test_clean = train['text'].progress_apply(lambda x : utils.cleanTweet(x, appostrophes=True, emojis=True, html=True, url=True,\
                                                                      misspellings=False, punctuation=True, lemming=True, stop=True))
     print('finished cleanning train dataset')
     utils.safeIndicators(test_clean, nlp_path, 'test_clean')
 
 data = pd.concat([train_clean,test_clean])
-data_corpus = create_corpus(data)
+data_corpus = utils.create_corpus(data)
 embedding_dict={}
 with open('C:/Users/cdoerr1/Desktop/CoronaAi/nlp-getting-started/glove.6B.100d.txt','r', encoding="utf8") as f:
     for line in f:
@@ -196,9 +95,6 @@ model.compile(loss='binary_crossentropy',optimizer=Adam(learning_rate=1e-5),metr
 train=tweet_pad[:train_raw.shape[0]]
 test=tweet_pad[train_raw.shape[0]:]
 
-
 X_train,X_test,y_train,y_test=train_test_split(train,train_raw['target'].values,test_size=0.15)
-print('Shape of train',X_train.shape)
-print("Shape of Validation ",X_test.shape)
 history=model.fit(X_train,y_train,batch_size=4,epochs=15,validation_data=(X_test,y_test),verbose=2)
 

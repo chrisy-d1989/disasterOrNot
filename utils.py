@@ -13,8 +13,14 @@ from sklearn import preprocessing
 import matplotlib.pyplot as plt
 import calculateIndicators as ind
 import re
-
-
+from nltk.tokenize import word_tokenize
+from spellchecker import SpellChecker
+from tqdm import tqdm
+import string
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer 
+from collections import defaultdict
+from sklearn.feature_extraction.text import CountVectorizer
 # def calculateHistoricIndicators(stock_data_path, stock):
 #     #load data
 #     stock = loadStockData(stock_data_path, stock, indicators=False)
@@ -135,7 +141,7 @@ def getMarketPerformance(path, market, start_idx, end_idx, number_years):
         total_return = (index['Adj Close'][end_idx]- index['Adj Close'][start_idx])/index['Adj Close'][start_idx] + 1
         return_market = np.append(return_market, total_return) 
         return_market_percentage = np.append(return_market_percentage, total_return * 100)
-        anual_return_market = np.append(anual_return_market, annual_return(total_return, number_years, rounded=True))
+        anual_return_market = np.append(anual_return_market, annualReturn(total_return, number_years, rounded=True))
     
     market_performance = pd.DataFrame([return_market_percentage, anual_return_market], columns=market, index = ['return_percentage', 'anual_return'])
     return (market_performance)
@@ -184,3 +190,91 @@ def decontracted(phrase):
     phrase = re.sub(r"\'ve", " have", phrase)
     phrase = re.sub(r"\'m", " am", phrase)
     return phrase
+
+def create_corpus(df):
+    corpus=[]
+    for tweet in tqdm(df['text']):
+        words=[word.lower() for word in word_tokenize(tweet) if((word.isalpha()==1))]
+        corpus.append(words)
+    return corpus
+
+def findStopwords(corpus):
+    dic_stopwords=defaultdict(int)
+    dic_punctuation=defaultdict(int)
+    stop_words=set(stopwords.words('english'))
+    special = string.punctuation
+    for word in corpus:
+        if word in stop_words:
+            dic_stopwords[word]+=1
+        if word in special:
+            dic_punctuation[word]+=1
+    top=sorted(dic_stopwords.items(), key=lambda x:x[1],reverse=True)[:10] 
+    return top, dic_punctuation
+
+def get_top_tweet_bigrams(corpus, dim=2, n=None):
+    vec = CountVectorizer(ngram_range=(dim, dim)).fit(corpus)
+    bag_of_words = vec.transform(corpus)
+    sum_words = bag_of_words.sum(axis=0) 
+    words_freq = [(word, sum_words[0, idx]) for word, idx in vec.vocabulary_.items()]
+    words_freq =sorted(words_freq, key = lambda x: x[1], reverse=True)
+    return words_freq[:n]
+
+def cleanTweet(text, appostrophes=True, emojis=True, html=True, url=True, misspellings=True, punctuation=True, lemming=True,\
+               stop=True):
+    # for text in corpus:
+    if appostrophes:
+        #convert appostrophes
+        filtered_tweet = decontracted(text)
+    if emojis:
+        #decoding, removing emojis
+        filtered_tweet = filtered_tweet.encode("utf-8").decode('ascii','ignore')
+    if html:
+        #cleaning of html tags
+        htmltags = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
+        filtered_tweet = re.sub(htmltags, '', filtered_tweet)
+    if url:
+        #cleaning of url
+        url = re.compile(r'https?://\S+|www\.\S+')
+        filtered_tweet = re.sub(url, '', text)
+    if misspellings:
+        #cleaning of misspellings
+        spell = SpellChecker()
+        corrected_text = []
+        misspelled_words = spell.unknown(filtered_tweet.split())
+        for word in filtered_tweet.split():
+            if word in misspelled_words:
+                corrected_text.append(spell.correction(word))
+            else:
+                corrected_text.append(word)
+        filtered_tweet =  " ".join(corrected_text)
+    #cleaning of slang words
+    #split attached words, not working and questionable because of all capital words
+    # filtered_tweet =  " ".join(re.findall('[A-Z][^A-Z]*', filtered_tweet))
+    #stemming
+    if punctuation:
+        word_tokens = word_tokenize(filtered_tweet)
+        #remove punctuations
+        table=str.maketrans('','',string.punctuation)
+        filtered_tweet.translate(table)  
+        filtered_tweet = [word.translate(table) for word in word_tokens]
+        filtered_tweet = " ".join(filtered_tweet)
+    if lemming:
+        #lemming of words
+        word_tokens = word_tokenize(filtered_tweet)
+        lemmatizer = WordNetLemmatizer() 
+        filtered_tweet = [lemmatizer.lemmatize(word) for word in word_tokens]
+    if stop:
+        # cleaning from stopwords
+        stop_words=set(stopwords.words('english'))
+        stop_word_drop = [] 
+        for word in filtered_tweet: 
+            if word not in stop_words: 
+                stop_word_drop.append(word) 
+    filtered_tweet = " ".join(stop_word_drop)
+    
+    #cleaning of rare words
+    # tokens is a list of all tokens in corpus
+    # freq_dist = nltk.FreqDist(token)
+    # rarewords = freq_dist.keys()[-50:]
+    # after_rare_words = [ word for word in token not in rarewords]
+    return filtered_tweet
