@@ -33,6 +33,7 @@ from sklearn.model_selection import train_test_split
 from keras.optimizers import Adam
 from nltk.stem.porter import PorterStemmer
 import utils as utils
+import model_utils as model_utils
 
 nlp_path = 'C:/Users/cdoerr1/Desktop/CoronaAi/nlp-getting-started/'
 
@@ -95,6 +96,8 @@ model.compile(loss='binary_crossentropy',optimizer=Adam(learning_rate=1e-5),metr
 train=tweet_pad[:train_raw.shape[0]]
 test=tweet_pad[train_raw.shape[0]:]
 
+callbacks = model_utils.defineCallbacks(nlp_path, 15, monitor='accuracy', schedule=False, stopping=True, plateau=False,\
+                                        checkpoint=False)
 X_train,X_test,y_train,y_test=train_test_split(train,train_raw['target'].values,test_size=0.15)
-history=model.fit(X_train,y_train,batch_size=4,epochs=15,validation_data=(X_test,y_test),verbose=2)
+history=model.fit(X_train,y_train, batch_size=4, epochs=15, callbacks=callbacks, validation_data=(X_test,y_test), verbose=2)
 

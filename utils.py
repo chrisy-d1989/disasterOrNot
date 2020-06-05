@@ -177,6 +177,11 @@ def saveFigure(safe_fig_path, stock_name, indicator):
     plt.savefig(safe_fig_path + stock_name + '_' + indicator + '.png')
     
 def decontracted(phrase):
+    """ 
+    Function to decontract frequent english words
+    Input phrase: string
+    Return phrase: decontracted string
+    """
     # specific
     phrase = re.sub(r"won\'t", "will not", phrase)
     phrase = re.sub(r"can\'t", "can not", phrase)
@@ -192,13 +197,24 @@ def decontracted(phrase):
     return phrase
 
 def create_corpus(df):
+    """ 
+    Function to create a corpus from a pandas series filled with strings
+    Input phrase: pandas column with string
+    Return corpus: corpus
+    """
     corpus=[]
     for tweet in tqdm(df['text']):
         words=[word.lower() for word in word_tokenize(tweet) if((word.isalpha()==1))]
         corpus.append(words)
     return corpus
 
-def findStopwords(corpus):
+def findStopwords(corpus): 
+    """ 
+    Function to filter stopwords in a corpus of strings
+    Input corpus: corpus
+    Return top: most frequent stopwords in the corpus
+    Return dic_punctuation: most frequent punctuation in the corpus
+    """
     dic_stopwords=defaultdict(int)
     dic_punctuation=defaultdict(int)
     stop_words=set(stopwords.words('english'))
@@ -211,7 +227,14 @@ def findStopwords(corpus):
     top=sorted(dic_stopwords.items(), key=lambda x:x[1],reverse=True)[:10] 
     return top, dic_punctuation
 
-def get_top_tweet_bigrams(corpus, dim=2, n=None):
+def get_top_tweet_ngrams(corpus, dim=2, n=None):
+    """ 
+    Function to filter stopwords in a corpus of strings
+    Input corpus: corpus
+    Input dim: defaul 2, dimension of ngram
+    Input n: defaul None, n most frequent used ngrams
+    Return words_freq: most frequent used ngrams
+    """
     vec = CountVectorizer(ngram_range=(dim, dim)).fit(corpus)
     bag_of_words = vec.transform(corpus)
     sum_words = bag_of_words.sum(axis=0) 
@@ -221,60 +244,72 @@ def get_top_tweet_bigrams(corpus, dim=2, n=None):
 
 def cleanTweet(text, appostrophes=True, emojis=True, html=True, url=True, misspellings=True, punctuation=True, lemming=True,\
                stop=True):
-    # for text in corpus:
+    """ 
+    Function to clean text
+    Input text: string of text
+    Input appostrophes: defaul True, boolean to clean for appostrophes
+    Input emojis: defaul True, boolean to clean for emojis
+    Input html: defaul True, boolean to clean for html tags
+    Input url: defaul True, boolean to clean for url
+    Input misspellings: defaul True, boolean to clean for misspellings
+    Input punctuation: defaul True, boolean to clean for punctuation
+    Input lemming: defaul True, boolean to clean with lemming technique
+    Input stop: defaul True, boolean to clean for stop words
+    Return filtered_string: filtered string of input text
+    """
     if appostrophes:
         #convert appostrophes
-        filtered_tweet = decontracted(text)
+        filtered_string = decontracted(text)
     if emojis:
         #decoding, removing emojis
-        filtered_tweet = filtered_tweet.encode("utf-8").decode('ascii','ignore')
+        filtered_string = filtered_string.encode("utf-8").decode('ascii','ignore')
     if html:
         #cleaning of html tags
         htmltags = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
-        filtered_tweet = re.sub(htmltags, '', filtered_tweet)
+        filtered_string = re.sub(htmltags, '', filtered_string)
     if url:
         #cleaning of url
         url = re.compile(r'https?://\S+|www\.\S+')
-        filtered_tweet = re.sub(url, '', text)
+        filtered_string = re.sub(url, '', text)
     if misspellings:
         #cleaning of misspellings
         spell = SpellChecker()
         corrected_text = []
-        misspelled_words = spell.unknown(filtered_tweet.split())
-        for word in filtered_tweet.split():
+        misspelled_words = spell.unknown(filtered_string.split())
+        for word in filtered_string.split():
             if word in misspelled_words:
                 corrected_text.append(spell.correction(word))
             else:
                 corrected_text.append(word)
-        filtered_tweet =  " ".join(corrected_text)
-    #cleaning of slang words
-    #split attached words, not working and questionable because of all capital words
-    # filtered_tweet =  " ".join(re.findall('[A-Z][^A-Z]*', filtered_tweet))
-    #stemming
+        filtered_string =  " ".join(corrected_text)
     if punctuation:
-        word_tokens = word_tokenize(filtered_tweet)
+        word_tokens = word_tokenize(filtered_string)
         #remove punctuations
         table=str.maketrans('','',string.punctuation)
-        filtered_tweet.translate(table)  
-        filtered_tweet = [word.translate(table) for word in word_tokens]
-        filtered_tweet = " ".join(filtered_tweet)
+        filtered_string.translate(table)  
+        filtered_string = [word.translate(table) for word in word_tokens]
+        filtered_string = " ".join(filtered_string)
     if lemming:
         #lemming of words
-        word_tokens = word_tokenize(filtered_tweet)
+        word_tokens = word_tokenize(filtered_string)
         lemmatizer = WordNetLemmatizer() 
-        filtered_tweet = [lemmatizer.lemmatize(word) for word in word_tokens]
+        filtered_string = [lemmatizer.lemmatize(word) for word in word_tokens]
     if stop:
         # cleaning from stopwords
         stop_words=set(stopwords.words('english'))
         stop_word_drop = [] 
-        for word in filtered_tweet: 
+        for word in filtered_string: 
             if word not in stop_words: 
                 stop_word_drop.append(word) 
-    filtered_tweet = " ".join(stop_word_drop)
+    filtered_string = " ".join(stop_word_drop)
     
+    #toDos
     #cleaning of rare words
     # tokens is a list of all tokens in corpus
     # freq_dist = nltk.FreqDist(token)
     # rarewords = freq_dist.keys()[-50:]
     # after_rare_words = [ word for word in token not in rarewords]
-    return filtered_tweet
+    #cleaning of slang words
+    #split attached words, not working and questionable because of all capital words
+    # filtered_string =  " ".join(re.findall('[A-Z][^A-Z]*', filtered_string))
+    return filtered_string
